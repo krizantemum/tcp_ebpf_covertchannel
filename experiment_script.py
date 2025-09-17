@@ -164,7 +164,7 @@ REPETITION = 30
 LOSS = 0
 DELAY = 1
 CHANNEL_CAP = 20
-REORDER = 5
+REORDER = 0
 DUP = 0
 RUN_TYPE = ["covert", "normal"]
 
