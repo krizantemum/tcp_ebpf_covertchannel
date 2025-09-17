@@ -4,18 +4,8 @@ TimeLSB, a covert channel based on TCP timestamps.
 
 ## Requirements
 
-* Linux kernel ≥ 6.1 (tested with 6.8). Needs TC-BPF (`clsact`) and EDT.
-* Toolchain: `clang`/`llvm`, `make`, `pkg-config`.
-* Libraries: `libbpf` ≥ 1.2 (tested with 1.5), `libpcap` ≥ 1.10.
-* Tools: `bpftool`, `iproute2` (for `tc`/`ip netns`).
-* Python ≥ 3.9 for helper scripts (experiments/generators).
-
-On Ubuntu/Debian:
-
 ```bash
-sudo apt-get update
-sudo apt-get install -y clang llvm make pkg-config libbpf-dev libpcap-dev \
-                        bpftool iproute2 python3 python3-pip
+sudo apt-get install -y clang llvm make pkg-config libbpf-dev libpcap-dev 
 ```
 
 ---
@@ -41,7 +31,7 @@ make receiver
 
 
 
-2. **Create the two-namespace lab**
+2. **Create the two namespace lab**
 
 ```bash
 sudo ./setup_env.sh up
