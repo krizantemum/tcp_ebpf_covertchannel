@@ -11,7 +11,7 @@
 #define MESSAGE_SIZE 32
 #define CRC_SIZE 4
 #define CRC_OFFSET 28
-#define IF_INTERFACE "eth0"
+#define IF_INTERFACE "veth0"
 struct stats
 {
     __u64 packet_count;

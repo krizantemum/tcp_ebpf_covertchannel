@@ -28,6 +28,9 @@
 #define MESSAGE_SIZE 32
 #define OCCUPATION 3
 
+// #define DEST_PORT 5001
+// #define DEST_IP 0x8e5d8f04 // 142.93.143.4
+
 __u32 cur_idx = 0;
 
 static __always_inline int get_tsval(struct tcphdr *tcph, __u32 **tsval, void *data_end) {
@@ -127,6 +130,11 @@ int tcp_processor(struct __sk_buff *skb) {
         if (parse_tcphdr(&nh, data_end, &tcph) < 0)
             goto out;
 
+        // if (bpf_ntohs(tcph->dest) != DEST_PORT || iphdr->daddr != bpf_htonl(DEST_IP)) {
+        //     bpf_printk("Packet not destined to target IP/port\n");
+        //     goto out;
+        // }
+        //
         __u32 *tsval;
         if (get_tsval(tcph, &tsval, data_end) == 0) {
             __u8 tcpheader[20] = {0};
@@ -148,14 +156,19 @@ int tcp_processor(struct __sk_buff *skb) {
             __u8 plain_text_bit = message[bit_index / 8] >> (7 - (bit_index % 8)) & 0x01;
             __u8 hashed_bit = key_bit ^ plain_text_bit;
 
+            // print some information about the packet
+            // print hash
+
             if ((bpf_ntohl(*tsval) & 1) != hashed_bit) {
                 *tsval = bpf_htonl(bpf_ntohl(*tsval) + 1);
-
                 // delay packet for 1ms
                 const __u64 delay = 1e6;
                 __u64 now = bpf_ktime_get_ns();
                 bpf_skb_set_tstamp(skb, now + delay, 1);
             }
+            // bpf_printk("TCP Header CRC32: %u\n", crc);
+            bpf_printk("CRC32: %u Packet idx:%u bit_index:%u plain_bit:%u hashed_bit:%u tsval:%u\n", crc, key,
+                       bit_index, plain_text_bit, hashed_bit, bpf_ntohl(*tsval));
             // update the transmission count map
             incr_tx_count(bit_index);
             update_stats(time);
