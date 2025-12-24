@@ -1,0 +1,29 @@
+{
+    "name": "tcp_ebpf_covertchannel",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": "..",
+        "args": {
+            "VARIANT": "latest",
+            "--network=host"
+        }
+    },
+    "runArgs": [
+        "--privileged",
+        "--cap-add=SYS_ADMIN",
+        "--security-opt",
+        "seccomp=unconfined"
+    ],
+    "workspaceFolder": "/workspace",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
+    "settings": {
+        "terminal.integrated.shell.linux": "/bin/bash"
+    },
+    "extensions": [
+        "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools",
+        "ms-azuretools.vscode-docker"
+    ],
+    "forwardPorts": [8080,5201,5202],
+    "postCreateCommand": "bash -lc 'id && echo Devcontainer ready'"
+}

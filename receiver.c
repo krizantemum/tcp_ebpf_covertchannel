@@ -48,7 +48,7 @@ void packet_handler(u_char *user, const struct pcap_pkthdr *h, const u_char *byt
     unsigned char cipher_text_bit;
     uint32_t tsval;
     uint32_t crc;
-
+    
     tcph->check = 0;
     uint32_t digest = crc32((unsigned char *)tcph, sizeof(struct tcphdr));
     bit_index = digest & 0xFF;
@@ -82,7 +82,36 @@ void packet_handler(u_char *user, const struct pcap_pkthdr *h, const u_char *byt
 
 int main(int argc, char *argv[]) {
 
-    char *dev = "ifb0";
+    char *dev;
+    if (argc > 1) {
+        dev = argv[1];
+    } else {
+        dev = "ifb0";
+    }
+    #include <ifaddrs.h>
+    #include <arpa/inet.h>
+
+    char dev_ip[INET_ADDRSTRLEN] = {0};
+    struct ifaddrs *ifaddr, *ifa;
+    if (getifaddrs(&ifaddr) == -1) {
+        perror("getifaddrs");
+        return 1;
+    }
+    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+        if (ifa->ifa_addr == NULL) continue;
+        if (ifa->ifa_addr->sa_family == AF_INET && strcmp(ifa->ifa_name, dev) == 0) {
+            struct sockaddr_in *sa = (struct sockaddr_in *)ifa->ifa_addr;
+            if (inet_ntop(AF_INET, &sa->sin_addr, dev_ip, sizeof(dev_ip)) != NULL) {
+                break;
+            }
+        }
+    }
+    freeifaddrs(ifaddr);
+    if (dev_ip[0] == '\0') {
+        fprintf(stderr, "Failed to get IPv4 address for interface %s\n", dev);
+        return 1;
+    }
+    printf("Interface %s IP: %s\n", dev, dev_ip);
     char errbuf[PCAP_ERRBUF_SIZE];
     pcap_t *handle;
     pcap_dumper_t *dumper;
@@ -102,7 +131,26 @@ int main(int argc, char *argv[]) {
     }
 
     struct bpf_program fp;
-    char filter_exp[] = "tcp and ip dst host 10.0.0.2";
+//    char filter_exp[64];
+    char filter_exp[64];
+    if (snprintf(filter_exp, sizeof(filter_exp), "tcp and ip dst host %s", dev_ip) >= (int)sizeof(filter_exp)) {
+        fprintf(stderr, "Filter expression too long\n");
+        return 1;
+    }
+    if (snprintf(filter_exp, sizeof(filter_exp), "tcp") >= (int)sizeof(filter_exp)) {
+        fprintf(stderr, "Filter expression too long\n");
+        return 1;
+    }
+    if (pcap_compile(handle, &fp, filter_exp, 1, PCAP_NETMASK_UNKNOWN) == -1) {
+        fprintf(stderr, "pcap_compile failed: %s\n", pcap_geterr(handle));
+        return 1;
+    }
+    if (pcap_setfilter(handle, &fp) == -1) {
+        fprintf(stderr, "pcap_setfilter failed: %s\n", pcap_geterr(handle));
+        pcap_freecode(&fp);
+        return 1;
+    }
+    pcap_freecode(&fp);
     if (pcap_compile(handle, &fp, filter_exp, 0, PCAP_NETMASK_UNKNOWN) == -1 || pcap_setfilter(handle, &fp) == -1) {
         fprintf(stderr, "Failed to set filter.\n");
         return 1;
