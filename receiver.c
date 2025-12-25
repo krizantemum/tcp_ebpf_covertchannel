@@ -25,15 +25,42 @@ uint32_t crc32(const unsigned char *data, size_t length) {
 }
 
 uint32_t *get_tsval(struct tcphdr *tcph) {
-    // generally tsval is at the 23rd byte
-    // [nop]=1 [nop]=1 [kind]=1 [len]=1 [tsval]=4 [tsecr]=4
-    uint8_t *options = (void *)tcph + sizeof(struct tcphdr);
-    uint8_t kind = options[2];
-    uint8_t len = options[3];
-    if (kind != TCPOPT_TIMESTAMP || len != TCPOLEN_TIMESTAMP) {
+    int i;
+    unsigned int tcp_header_len;
+    unsigned int options_len;
+    unsigned char *options;
+    unsigned char kind;
+    unsigned int option_len;
+    uint32_t *tsval;
+
+    if (tcph->doff <= 5)
         return NULL;
+
+    options = (unsigned char *)tcph + 20;
+    tcp_header_len = (unsigned int)tcph->doff * 4;
+    options_len = tcp_header_len - 20;
+
+    i = 0;
+    while (i < options_len) {
+        kind = options[i];
+        if (kind == TCPOPT_EOL)
+            break;
+        else if (kind == TCPOPT_NOP) {
+            i++;
+            continue;
+        }
+        else {
+            if (i + 1 >= options_len)
+                break;
+            option_len = options[i + 1];
+            if (kind == TCPOPT_TIMESTAMP && option_len == 10) {
+                tsval = (uint32_t *)(options + i + 2);
+                return tsval;
+            }
+            i += option_len;
+        }
     }
-    return (uint32_t *)(options + 4);
+    return NULL;
 }
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -48,7 +75,7 @@ void packet_handler(u_char *user, const struct pcap_pkthdr *h, const u_char *byt
     unsigned char cipher_text_bit;
     uint32_t tsval;
     uint32_t crc;
-    
+
     tcph->check = 0;
     uint32_t digest = crc32((unsigned char *)tcph, sizeof(struct tcphdr));
     bit_index = digest & 0xFF;
@@ -85,11 +112,12 @@ int main(int argc, char *argv[]) {
     char *dev;
     if (argc > 1) {
         dev = argv[1];
-    } else {
+    }
+    else {
         dev = "ifb0";
     }
-    #include <ifaddrs.h>
-    #include <arpa/inet.h>
+#include <ifaddrs.h>
+#include <arpa/inet.h>
 
     char dev_ip[INET_ADDRSTRLEN] = {0};
     struct ifaddrs *ifaddr, *ifa;
@@ -98,7 +126,8 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-        if (ifa->ifa_addr == NULL) continue;
+        if (ifa->ifa_addr == NULL)
+            continue;
         if (ifa->ifa_addr->sa_family == AF_INET && strcmp(ifa->ifa_name, dev) == 0) {
             struct sockaddr_in *sa = (struct sockaddr_in *)ifa->ifa_addr;
             if (inet_ntop(AF_INET, &sa->sin_addr, dev_ip, sizeof(dev_ip)) != NULL) {
@@ -114,8 +143,8 @@ int main(int argc, char *argv[]) {
     printf("Interface %s IP: %s\n", dev, dev_ip);
     char errbuf[PCAP_ERRBUF_SIZE];
     pcap_t *handle;
-    pcap_dumper_t *dumper;
-    const char *outfile = "capture.pcap";
+    // pcap_dumper_t *dumper;
+    // const char *outfile = "capture.pcap";
 
     handle = pcap_open_live(dev, BUFSIZ, 1, 1000, errbuf);
     if (!handle) {
@@ -123,21 +152,17 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    dumper = pcap_dump_open(handle, outfile);
-    if (!dumper) {
-        fprintf(stderr, "pcap_dump_open failed: %s\n", pcap_geterr(handle));
-        pcap_close(handle);
-        return 1;
-    }
+    // dumper = pcap_dump_open(handle, outfile);
+    // if (!dumper) {
+    //     fprintf(stderr, "pcap_dump_open failed: %s\n", pcap_geterr(handle));
+    //     pcap_close(handle);
+    //     return 1;
+    // }
 
     struct bpf_program fp;
-//    char filter_exp[64];
+    //    char filter_exp[64];
     char filter_exp[64];
     if (snprintf(filter_exp, sizeof(filter_exp), "tcp and ip dst host %s", dev_ip) >= (int)sizeof(filter_exp)) {
-        fprintf(stderr, "Filter expression too long\n");
-        return 1;
-    }
-    if (snprintf(filter_exp, sizeof(filter_exp), "tcp") >= (int)sizeof(filter_exp)) {
         fprintf(stderr, "Filter expression too long\n");
         return 1;
     }
@@ -151,13 +176,14 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     pcap_freecode(&fp);
+    printf("Filter applied: %s\n", filter_exp);
     if (pcap_compile(handle, &fp, filter_exp, 0, PCAP_NETMASK_UNKNOWN) == -1 || pcap_setfilter(handle, &fp) == -1) {
         fprintf(stderr, "Failed to set filter.\n");
         return 1;
     }
 
     printf("Listening on interface %s for TCP packets...\n", dev);
-    pcap_loop(handle, -1, packet_handler, (u_char *)dumper);
+    pcap_loop(handle, -1, packet_handler, NULL);
 
     pcap_close(handle);
     return 0;
