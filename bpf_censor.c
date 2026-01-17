@@ -55,6 +55,9 @@ int tcp_censor(struct __sk_buff *skb)
   struct hdr_cursor nh = {.pos = data};
   int eth_type, ip_type, ret = TC_ACT_OK;
 
-  
+    struct iphdr *iphdr;
+    struct tcphdr *tcph;
+    struct ethhdr *eth;
+
   
 }
