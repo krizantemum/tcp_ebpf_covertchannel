@@ -25,3 +25,36 @@
 
 #define MESSAGE_SIZE 32
 #define OCCUPATION 3
+
+/*
+*
+*/
+static __always_inline int get_tsval(struct tcphdr *tcph, __u32 **tsval, void *data_end) {
+    // 
+    if (((void *)tcph) + sizeof(struct tcphdr) + MAX_OPT_LEN > data_end) {
+        return -1;
+    }
+    __u8 *options = (void *)tcph + sizeof(struct tcphdr);
+    __u8 kind = options[2];
+    __u8 len = options[3];
+    if (kind != TCPOPT_TIMESTAMP || len != TCPOLEN_TIMESTAMP) {
+        return -1;
+    }
+    *tsval = (__u32 *)(options + 4);
+    return 0;
+}
+
+/*
+*
+*/
+SEC("classifier")
+int tcp_censor(struct __sk_buff *skb)
+{
+  void *data_end = (void *)(long)skb->data_end;
+  void *data = (void *)(long)skb->data; 
+  struct hdr_cursor nh = {.pos = data};
+  int eth_type, ip_type, ret = TC_ACT_OK;
+
+  
+  
+}
