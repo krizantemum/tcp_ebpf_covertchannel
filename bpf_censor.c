@@ -36,7 +36,7 @@ static __always_inline int get_tsval(struct tcphdr *tcph, __u32 **tsval, void *d
     if (kind != TCPOPT_TIMESTAMP || len != TCPOLEN_TIMESTAMP) {
         return -1;
     }
-    
+    // Assumption: NOP(1) NOP(1) KIND(1) Length(1)
     *tsval = (__u32 *)(options + 4);
     return 0;
 }
