@@ -1,24 +1,16 @@
 #include <linux/bpf.h>
-// #include <linux/in.h>
 
 #include <linux/if_ether.h>
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_endian.h>
 #include <linux/pkt_cls.h>
-// #include <sys/cdefs.h>
 
 #include "parsing_helpers.h"
 
-/*Most not needed for specialized case, delete*/
-// #define TCPOPT_EOL 0
-// #define TCPOPT_NOP 1
 #define TCPOPT_TIMESTAMP 8
 #define TCPOLEN_TIMESTAMP 10
 #define MAX_OPT_LEN 12
 
-/*
-*
-*/
 static __always_inline int get_tsval(struct tcphdr *tcph, __u32 **tsval, void *data_end) {
     // Preventing out of bounds access
     if (((void *)tcph) + sizeof(struct tcphdr) + MAX_OPT_LEN > data_end) {
@@ -102,7 +94,6 @@ int tcp_censor(struct __sk_buff *skb)
                 );
             }
             else {
-                bpf_printk("TCP timestamp option not found or invalid\n");
                 goto out;
             }
 }
