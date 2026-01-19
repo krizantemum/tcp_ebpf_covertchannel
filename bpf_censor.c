@@ -16,9 +16,6 @@
 #define TCPOLEN_TIMESTAMP 10
 #define MAX_OPT_LEN 12
 
-#define MESSAGE_SIZE 32
-#define OCCUPATION 3
-
 /*
 *
 */
