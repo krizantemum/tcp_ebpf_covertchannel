@@ -81,16 +81,31 @@ int tcp_censor(struct __sk_buff *skb)
 
         // NOP NOP TSval
         if (get_tsval(tcph, &tsval, data_end) == 0) {
-            
-            __u32 val = bpf_ntohl(*tsval);
-            val &= ~1;     
-            *tsval = bpf_htonl(val);
-        }
-        else {
-            bpf_printk("TCP timestamp option not found or invalid\n");
-            goto out;
-        }
-    }
+
+            __u32 old = *tsval;
+            __u32 host = bpf_ntohl(old);
+
+            host &= ~1;   // zero LSB
+
+            __u32 new = bpf_htonl(host);
+
+            // change checksum if lsb is changed
+            if (old != new) {
+                *tsval = new;
+
+                bpf_l4_csum_replace(
+                    skb,
+                    offsetof(struct tcphdr, check),
+                    old,
+                    new,
+                    BPF_F_PSEUDO_HDR | sizeof(__u32)
+                );
+            }
+            else {
+                bpf_printk("TCP timestamp option not found or invalid\n");
+                goto out;
+            }
+}
   out:
       return ret;
 }
