@@ -42,13 +42,17 @@ static __always_inline int get_tsval(struct tcphdr *tcph, __u32 **tsval, void *d
 }
 
 /*
-* Attaches tc ingress/egress
+* Attach at tc ingress/egress
 */
 SEC("classifier")
 int tcp_censor(struct __sk_buff *skb)
 {
+    // pointer to last byte
     void *data_end = (void *)(long)skb->data_end;
+    
+    // pointer to first byte
     void *data = (void *)(long)skb->data; 
+    
     struct hdr_cursor nh = {.pos = data};
     int eth_type, ip_type, ret = TC_ACT_OK;
 
@@ -56,6 +60,41 @@ int tcp_censor(struct __sk_buff *skb)
     struct iphdr *iphdr;
     struct tcphdr *tcph;
     struct ethhdr *eth;
+    
+    if (data + sizeof(*eth) > data_end)
+        goto out;
 
-  
+    eth_type = parse_ethhdr(&nh, data_end, &eth);
+    if (eth_type < 0)
+        goto out;
+
+    if (eth_type == bpf_htons(ETH_P_IP)) {
+        ip_type = parse_iphdr(&nh, data_end, &iphdr);
+    }
+    else {
+        goto out;
+    }
+
+    if (ip_type == IPPROTO_TCP) {
+
+        if (parse_tcphdr(&nh, data_end, &tcph) < 0)
+            goto out;
+        
+        __u32 *tsval;
+
+        // NOP NOP TSval
+        if (get_tsval(tcph, &tsval, data_end) == 0) {
+            
+            __u32 val = bpf_ntohl(*tsval);
+            val &= ~1;     
+            *tsval = bpf_htonl(val);
+        }
+        else {
+            bpf_printk("TCP timestamp option not found or invalid\n");
+            goto out;
+        }
+    }
+  out:
+      return ret;
 }
+char _license[] SEC("license") = "GPL";
