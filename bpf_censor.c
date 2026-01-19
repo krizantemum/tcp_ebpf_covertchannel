@@ -10,11 +10,11 @@
 #include "parsing_helpers.h"
 
 /*Most not needed for specialized case, delete*/
-#define TCPOPT_EOL 0
-#define TCPOPT_NOP 1
+// #define TCPOPT_EOL 0
+// #define TCPOPT_NOP 1
 #define TCPOPT_TIMESTAMP 8
 #define TCPOLEN_TIMESTAMP 10
-#define MAX_OPT_LEN 12
+// #define MAX_OPT_LEN 12
 
 /*
 *
